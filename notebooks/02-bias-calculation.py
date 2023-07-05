@@ -169,4 +169,4 @@ pert_bias.loc[
 # COMMAND ----------
 
 cell_bias.to_csv(dir_bias + "cell_bias_geneeffect.csv")
-pert_bias.to_csv(dir_bias + "pert_bias_geneffect.csv")
+pert_bias.to_csv(dir_bias + "pert_bias_geneeffect.csv")
