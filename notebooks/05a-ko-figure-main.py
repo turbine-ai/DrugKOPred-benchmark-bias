@@ -6,10 +6,10 @@ import os
 import numpy as np
 
 EX_SPLITS = ["RND", "CEX", "GEX"] 
-DATASET_FILTER = ['onehot_onehot', 'allfeatures_onehot', 'onehot_allfeatures', 'allfeatures_allfeatures']
+FEATURESET_FILTER = ['onehot_onehot', 'allfeatures_onehot', 'onehot_allfeatures', 'allfeatures_allfeatures']
 
-EVALS_DIR = "/dbfs/mnt/sandbox/benchmark-paper/final/evals/ko"
-BD_DIR = "/dbfs/mnt/sandbox/benchmark-paper/final/bds/ko"
+EVALS_DIR = "/home/centi/benchmark-paper-2023/data/final/evals/ko"
+BD_DIR = "/home/centi/benchmark-paper-2023/data/final/bds/ko"
 
 
 def load_data():
@@ -27,7 +27,7 @@ def load_data():
         features = fn_tokens[4] + '_' + fn_tokens[5]
         if ex_split not in EX_SPLITS:
             continue
-        if dataset not in DATASET_FILTER:
+        if features not in FEATURESET_FILTER:
             continue
         print(filename)
         df = pd.read_csv(os.path.join(EVALS_DIR, filename))
@@ -39,7 +39,7 @@ def load_data():
 
         #we append node data before to avoid adding the bdt col
         #read in bias detector results
-        bdt_file = os.path.join(BD_DIR, f"geneeffect_{ex_split}_{random_split}_{model}_{dataset}.csv")
+        bdt_file = os.path.join(BD_DIR, f"geneeffect_{ex_split}_{random_split}_{model}_{features}.csv")
         bdt_df = pd.read_csv(bdt_file)
         bdt_df = bdt_df[bdt_df.type == 'pert']
         n_sig = len(np.where((bdt_df.p < 0.05) & (bdt_df.r > 0))[0])
@@ -58,7 +58,7 @@ global_data.model.replace("linear", "LR", inplace=True)
 node_data.model.replace("randomforest", "RF", inplace=True)
 node_data.model.replace("linear", "LR", inplace=True)
 
-# needed for not alphabetical sorting
+# needed for non-alphabetical sorting
 global_data.model = pd.Categorical(global_data.model, categories=["LR", "RF", "MLP"], ordered=True)
 node_data.model = pd.Categorical(node_data.model, categories=["LR", "RF", "MLP"], ordered=True)
 
@@ -88,23 +88,24 @@ barplot_kwargs = {
     "edgecolor": "black"
 }
 for i, ex in enumerate(EX_SPLITS):
-    g = sns.barplot(x='model', y='pearson', hue='features', data=global_data[global_data.ex_split == ex], ax=ax[i, 0], **barplot_kwargs)
+    g = sns.barplot(x='model', y='pearson', hue='features', data=global_data[global_data.ex_split == ex], ax=ax[0, i], **barplot_kwargs)
     g.get_legend().remove()
-    ax[i, 0].set_xlabel('')
-    ax[i, 0].set_ylabel('Global Pearson')
-    ax[i, 0].set_ylim(0,1)
-    g = sns.boxplot(x='model', y='pearson', hue='features', data=node_data[node_data.ex_split == ex], ax=ax[i, 1])
+    ax[0, i].set_xlabel('')
+    ax[0, i].set_ylabel('Global Pearson')
+    ax[0, i].set_title(ex)
+    ax[0, i].set_ylim(0,1)
+    g = sns.boxplot(x='model', y='pearson', hue='features', data=node_data[node_data.ex_split == ex], ax=ax[1, i])
     g.get_legend().remove()
-    ax[i, 1].set_ylabel('Per gene pearson')
-    ax[i, 1].set_title(ex)
-    ax[i, 1].set_ylim(-1,1)
-    if i != 2:
-        ax[i, 1].set_xlabel('')
-    g = sns.barplot(x='model', y='bdt_ratio_sig', hue='features', data=global_data[global_data.ex_split == ex], ax=ax[i, 2], **barplot_kwargs)
+    ax[1, i].set_ylabel('Per gene pearson')
+    ax[1, i].set_title(ex)
+    ax[1, i].set_ylim(-1,1)
+    ax[1, i].set_xlabel('method')
+    g = sns.barplot(x='model', y='bdt_ratio_sig', hue='features', data=global_data[global_data.ex_split == ex], ax=ax[2, i], **barplot_kwargs)
     g.get_legend().remove()
-    ax[i, 2].set_xlabel('')
-    ax[i, 2].set_ylabel('Ratio of significant genes')
-    ax[i, 2].set_ylim(0,1)
+    ax[2, i].set_xlabel('')
+    ax[2, i].set_ylabel('Ratio of significant genes')
+    ax[2, i].set_title(ex)
+    ax[2, i].set_ylim(0,1)
 ax[1, 2].legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
 fig.tight_layout()
 fig.savefig("ko_figure_main.png")
