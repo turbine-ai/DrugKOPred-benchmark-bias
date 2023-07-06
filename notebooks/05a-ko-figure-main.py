@@ -1,12 +1,18 @@
+import random
+import os
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-import random
-import os
 import numpy as np
+from scipy.stats import ttest_rel
+from statsmodels.stats.multitest import multipletests
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
 
 EX_SPLITS = ["RND", "CEX", "GEX"] 
 FEATURESET_FILTER = ['onehot_onehot', 'allfeatures_onehot', 'onehot_allfeatures', 'allfeatures_allfeatures']
+THRSH = 0.05
 
 EVALS_DIR = "/home/centi/benchmark-paper-2023/data/final/evals/ko"
 BD_DIR = "/home/centi/benchmark-paper-2023/data/final/bds/ko"
@@ -48,6 +54,75 @@ def load_data():
         global_data = global_data.append(df[df.type == 'global'])
 
     return global_data, node_data
+
+def get_significance_labels(df, col_id, split, _thrsh=THRSH):
+  filt = df['ex_split'] == split
+  models = set(df['model'])
+  feature_combinations = set(df['features'])
+  model = ols(f"""{col_id} ~ C(model) + C(features) +
+                C(model):C(features)""", data=df[filt]).fit()
+
+  _anova = sm.stats.anova_lm(model, typ=2)
+  p_values=[]
+  filt2 = np.logical_and(df['model'] == 'LR', df['features'] == 'ALL-ALL')
+  reference = df.loc[np.logical_and(filt, filt2), col_id]
+  for model in models:
+    for fc in feature_combinations:
+      filt2 = np.logical_and(df['model'] == model, df['features'] == fc)
+      test = df.loc[np.logical_and(filt, filt2),col_id]
+      res = ttest_rel(reference, test)
+      p_values.append({'vs':'LR + ALL + ALL',
+                      'model':model,
+                      'features':fc,
+                      'p-value':res.pvalue})
+ 
+  p_values_df = pd.DataFrame(p_values)
+  p_values_df = p_values_df.fillna(1)
+  _,p_values_df['adjusted_p-value'],_,_ = multipletests(p_values_df['p-value'], alpha = _thrsh, method = 'fdr_bh')
+  p_values_df['label'] = ['+' if x < _thrsh and _anova.loc['C(model)','PR(>F)'] <= _thrsh else ' ' for x in p_values_df['adjusted_p-value']]
+
+  p_values=[]
+
+  for model in models:
+    filt2 = np.logical_and(df['model'] == model, df['features'] == 'OHE-OHE')
+    reference = df.loc[np.logical_and(filt, filt2),col_id]
+    for fc in feature_combinations:
+      filt2 = np.logical_and(df['model'] == model, df['features'] == fc)
+      test = df.loc[np.logical_and(filt, filt2),col_id]
+      res = ttest_rel(reference, test)
+      p_values.append({'vs':f'{model} + OHE + OHE',
+                      'model':model,
+                      'features':fc,
+                      'p-value':res.pvalue})
+  p_values = pd.DataFrame(p_values)
+  p_values = p_values.fillna(1)
+  _,p_values['adjusted_p-value'],_,_ = multipletests(p_values['p-value'], alpha = _thrsh, method = 'fdr_bh')
+  p_values['label'] = ['*' if x < _thrsh and _anova.loc['C(model):C(features)','PR(>F)']< _thrsh else ' ' for x in p_values['adjusted_p-value']]
+
+  labels = p_values_df[['model','features','label']].merge(p_values[['model','features','label']], how = 'left', on=['model','features'], suffixes = ['_model','_fc'])
+  labels['label'] = labels['label_model'] + '\n' + labels['label_fc']
+  
+  return labels[['model','features','label']]
+
+def add_sign_labels(ax, sign_labels, rep, max_y):
+    start = -0.3
+    end = 0.5
+    model_order = ["LR", "RF", "MLP"]
+    feature_order = list(sorted(sign_labels.features.unique()))
+    step = (end-start)/len(feature_order)
+    #rep = len(set(corr_df['model']))
+    pos = np.arange(start,end,step)
+    scal = 1.0
+    for r in range(1,rep):
+        pos = np.concatenate((pos, np.arange(r+start,r+end,step)))
+    pos = pos * scal
+    tick = 0
+    for _o in model_order:
+        for _fo in feature_order:
+          _label = sign_labels.loc[np.logical_and(sign_labels['model'] == _o, sign_labels['features'] == _fo),'label'].tolist()[0]
+        
+          ax.text(pos[tick], max_y*0.9, _label, ha = 'center', weight='bold', color = 'red')
+          tick +=1
 
 
 global_data, node_data = load_data()
@@ -94,18 +169,33 @@ for i, ex in enumerate(EX_SPLITS):
     ax[0, i].set_ylabel('Global Pearson')
     ax[0, i].set_title(ex)
     ax[0, i].set_ylim(0,1)
+    sign_labels = get_significance_labels(global_data, 'pearson', ex)
+    print(ex, "global pearson")
+    print(sign_labels)
+    add_sign_labels(ax[0,i], sign_labels, len(global_data.model.unique()), 1)
+
     g = sns.boxplot(x='model', y='pearson', hue='features', data=node_data[node_data.ex_split == ex], ax=ax[1, i])
     g.get_legend().remove()
     ax[1, i].set_ylabel('Per gene pearson')
     ax[1, i].set_title(ex)
     ax[1, i].set_ylim(-1,1)
     ax[1, i].set_xlabel('method')
+    sign_labels = get_significance_labels(node_data, 'pearson', ex)
+    print(ex, "node pearson")
+    print(sign_labels)
+    add_sign_labels(ax[1,i], sign_labels, len(node_data.model.unique()), 0.9)
+
     g = sns.barplot(x='model', y='bdt_ratio_sig', hue='features', data=global_data[global_data.ex_split == ex], ax=ax[2, i], **barplot_kwargs)
     g.get_legend().remove()
     ax[2, i].set_xlabel('')
     ax[2, i].set_ylabel('Ratio of significant genes')
     ax[2, i].set_title(ex)
     ax[2, i].set_ylim(0,1)
+    sign_labels = get_significance_labels(global_data, 'bdt_ratio_sig', ex)
+    print(ex, "bdt")
+    print(sign_labels)
+    add_sign_labels(ax[2,i], sign_labels, len(global_data.model.unique()), 1)
+
 ax[1, 2].legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
 fig.tight_layout()
 fig.savefig("ko_figure_main.png")
