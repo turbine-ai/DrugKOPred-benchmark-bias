@@ -1,5 +1,6 @@
 import random
 import os
+import string
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -196,7 +197,13 @@ for i, ex in enumerate(EX_SPLITS):
     print(sign_labels)
     add_sign_labels(ax[2,i], sign_labels, len(global_data.model.unique()), 1)
 
+for i in range(3):
+    for j in range(3):
+        ax[i,j].text(-0.1, 1.05, string.ascii_uppercase[i*3+j],
+                transform=ax[i,j].transAxes, size=20, weight='bold')
+
 ax[1, 2].legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
 fig.tight_layout()
 fig.savefig("ko_figure_main.png")
+fig.savefig("ko_figure_main.pdf")
 
