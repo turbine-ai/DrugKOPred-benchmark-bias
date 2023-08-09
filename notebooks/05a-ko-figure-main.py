@@ -42,13 +42,21 @@ def load_data():
         df['random_split'] = random_split
         df['model'] = model
         df['features'] = features
-        node_data = node_data.append(df[df.type == 'perturbation'])
 
-        #we append node data before to avoid adding the bdt col
-        #read in bias detector results
         bdt_file = os.path.join(BD_DIR, f"geneeffect_{ex_split}_{random_split}_{model}_{features}.csv")
         bdt_df = pd.read_csv(bdt_file)
         bdt_df = bdt_df[bdt_df.type == 'pert']
+        df = pd.merge(
+                df,
+                bdt_df[["name", "r", "p"]],
+                how='left',
+                on="name"
+        )
+
+        node_data = node_data.append(df[df.type == 'perturbation'])
+
+        #we append node data before to avoid adding the bdt_n_sig col
+        #read in bias detector results
         n_sig = len(np.where((bdt_df.p < 0.05) & (bdt_df.r > 0))[0])
         df['bdt_n_sig'] = n_sig
         df['bdt_ratio_sig'] = n_sig/len(bdt_df)
@@ -155,10 +163,9 @@ node_data.pearson.fillna(0, inplace=True)
 global_data = global_data.sort_values(['model', 'features'])
 node_data = node_data.sort_values(['model', 'features'])
 
-fig, ax = plt.subplots(3,3, figsize=(9,10))
+fig, ax = plt.subplots(4,3, figsize=(9,13))
 colors = ['#78577A', '#33C7CC', '#FF6666', '#FCFAFF']
 sns.set_palette(sns.color_palette(colors))
-sns.palplot(sns.color_palette(colors))
 barplot_kwargs = {
     "linewidth": 1,
     "edgecolor": "black"
@@ -186,18 +193,30 @@ for i, ex in enumerate(EX_SPLITS):
     print(sign_labels)
     add_sign_labels(ax[1,i], sign_labels, len(node_data.model.unique()), 0.9)
 
-    g = sns.barplot(x='model', y='bdt_ratio_sig', hue='features', data=global_data[global_data.ex_split == ex], ax=ax[2, i], **barplot_kwargs)
+    g = sns.boxplot(x='model', y='r', hue='features', data=node_data[node_data.ex_split == ex], ax=ax[2, i])
     g.get_legend().remove()
-    ax[2, i].set_xlabel('')
-    ax[2, i].set_ylabel('Ratio of significant genes')
+    ax[2, i].set_ylabel('Per gene partial correlation')
     ax[2, i].set_title(ex)
-    ax[2, i].set_ylim(0,1)
+    ax[2, i].set_ylim(-1,1)
+    ax[2, i].set_xlabel('method')
+    sign_labels = get_significance_labels(node_data, 'r', ex)
+    print(ex, "pcorr")
+    print(sign_labels)
+    add_sign_labels(ax[2,i], sign_labels, len(node_data.model.unique()), 0.9)
+
+    g = sns.barplot(x='model', y='bdt_ratio_sig', hue='features', data=global_data[global_data.ex_split == ex], ax=ax[3, i], **barplot_kwargs)
+    g.get_legend().remove()
+    ax[3, i].set_xlabel('')
+    ax[3, i].set_ylabel('Ratio of significant genes')
+    ax[3, i].set_title(ex)
+    ax[3, i].set_ylim(0,1)
     sign_labels = get_significance_labels(global_data, 'bdt_ratio_sig', ex)
     print(ex, "bdt")
     print(sign_labels)
-    add_sign_labels(ax[2,i], sign_labels, len(global_data.model.unique()), 1)
+    add_sign_labels(ax[3,i], sign_labels, len(global_data.model.unique()), 1)
 
-for i in range(3):
+
+for i in range(4):
     for j in range(3):
         ax[i,j].text(-0.1, 1.05, string.ascii_uppercase[i*3+j],
                 transform=ax[i,j].transAxes, size=20, weight='bold')
