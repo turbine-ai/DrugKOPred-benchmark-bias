@@ -159,16 +159,8 @@ def merge_p_values(global_data, sign_labels, ex_split, score_name):
             global_data.loc[ix, score_name + "_adj_p_value_fc"] = sign_data["adjusted_p-value_fc"]
 
 def rename_features(orig_name):
-    name = orig_name.replace("onehot", 'OHE')
-    name = name.replace("allfeatures", 'ALL')
-    #order is important, mut is in mutation
-    name = name.replace("mutation", 'MUT')
-    name = name.replace("mut", 'MUT')
-    name = name.replace("expression", 'TPM')
-    name = name.replace("tpm", 'TPM')
-    name = name.replace("go", 'GO')
-    name = name.replace("n2v", 'N2V')
-    name = name.replace("p2v", 'P2V')
+    name = name.replace("mut", 'mutation')
+    name = name.replace("_", ' + ')
     return name
     
 
@@ -300,7 +292,7 @@ for i, ex in enumerate(EX_SPLITS):
     #add_sign_labels(ax[6,i], sign_labels, len(node_data.model.unique()), 1)
     merge_p_values(global_data, sign_labels, ex, 'node_bd_ratio')
 
-ax[3, 3].legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+ax[6, 2].legend(loc='center left', bbox_to_anchor=(0.5, -0.7), ncol=2)
 fig.tight_layout()
 fig.savefig("ko_perf_figure_supp.png")
 fig.savefig("ko_perf_figure_supp.pdf")

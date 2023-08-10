@@ -73,7 +73,7 @@ def get_significance_labels(df, col_id, split, _thrsh=THRSH):
 
   _anova = sm.stats.anova_lm(model, typ=2)
   p_values=[]
-  filt2 = np.logical_and(df['model'] == 'LR', df['features'] == 'ALL-ALL')
+  filt2 = np.logical_and(df['model'] == 'LR', df['features'] == 'allfeatures + allfeatures')
   reference = df.loc[np.logical_and(filt, filt2), col_id]
   for model in models:
     for fc in feature_combinations:
@@ -93,7 +93,7 @@ def get_significance_labels(df, col_id, split, _thrsh=THRSH):
   p_values=[]
 
   for model in models:
-    filt2 = np.logical_and(df['model'] == model, df['features'] == 'OHE-OHE')
+    filt2 = np.logical_and(df['model'] == model, df['features'] == 'onehot + onehot')
     reference = df.loc[np.logical_and(filt, filt2),col_id]
     for fc in feature_combinations:
       filt2 = np.logical_and(df['model'] == model, df['features'] == fc)
@@ -147,14 +147,14 @@ global_data.model = pd.Categorical(global_data.model, categories=["LR", "RF", "M
 node_data.model = pd.Categorical(node_data.model, categories=["LR", "RF", "MLP"], ordered=True)
 
 # short featureset names
-global_data.features.replace("allfeatures_allfeatures", "ALL-ALL", inplace=True)
-global_data.features.replace("allfeatures_onehot", "ALL-OHE", inplace=True)
-global_data.features.replace("onehot_allfeatures", "OHE-ALL", inplace=True)
-global_data.features.replace("onehot_onehot", "OHE-OHE", inplace=True)
-node_data.features.replace("allfeatures_allfeatures", "ALL-ALL", inplace=True)
-node_data.features.replace("allfeatures_onehot", "ALL-OHE", inplace=True)
-node_data.features.replace("onehot_allfeatures", "OHE-ALL", inplace=True)
-node_data.features.replace("onehot_onehot", "OHE-OHE", inplace=True)
+global_data.features.replace("allfeatures_allfeatures", "allfeatures + allfeatures", inplace=True)
+global_data.features.replace("allfeatures_onehot", "allfeatures + onehot", inplace=True)
+global_data.features.replace("onehot_allfeatures", "onehot + allfeatures", inplace=True)
+global_data.features.replace("onehot_onehot", "onehot + onehot", inplace=True)
+node_data.features.replace("allfeatures_allfeatures", "allfeatures + allfeatures", inplace=True)
+node_data.features.replace("allfeatures_onehot", "allfeatures + onehot", inplace=True)
+node_data.features.replace("onehot_allfeatures", "onehot + allfeatures", inplace=True)
+node_data.features.replace("onehot_onehot", "onehot + onehot", inplace=True)
 
 # fill NaN pearson coming from 0 variance predictions
 node_data.pearson.fillna(0, inplace=True)
@@ -221,7 +221,7 @@ for i in range(4):
         ax[i,j].text(-0.1, 1.05, string.ascii_uppercase[i*3+j],
                 transform=ax[i,j].transAxes, size=20, weight='bold')
 
-ax[1, 2].legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+ax[3, 1].legend(loc='lower center', bbox_to_anchor=(0.5, -0.7))
 fig.tight_layout()
 fig.savefig("ko_figure_main.png")
 fig.savefig("ko_figure_main.pdf")
